@@ -1,0 +1,107 @@
+
+
+/* Layout */
+.container {
+  max-width: 600px;
+  margin: 2rem auto;
+  font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  padding: 1rem;
+  min-height: 100vh;
+  background: linear-gradient(to bottom right, #0f0f0f, #1a1a1a);
+  color: #fff;
+}
+
+/* Chat Window & Bubbles */
+.chatWindow {
+  min-height: 300px;
+  border: 1px solid #333;
+  border-radius: 8px;
+  padding: 1rem;
+  background-color: #fff;
+  margin-bottom: 1rem;
+  overflow-y: auto;
+}
+
+.bubble {
+  padding: 0.75rem 1rem;
+  border-radius: 16px;
+  margin: 0.5rem 0;
+  max-width: 80%;
+  white-space: pre-wrap;
+  font-size: 0.95rem;
+  line-height: 1.5;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+  animation: fadeIn 0.3s ease;
+}
+
+.userBubble {
+  background-color: #4e8df5;
+  color: #fff;
+  align-self: flex-end;
+  margin-left: auto;
+}
+
+.cindaBubble {
+  background-color: #e1e1e1;
+  color: #000;
+  align-self: flex-start;
+  margin-right: auto;
+}
+
+/* Form & Controls */
+.form {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.input {
+  flex: 1;
+  padding: 0.75rem 1rem;
+  font-size: 1rem;
+  border-radius: 12px;
+  border: 1px solid #ccc;
+  outline: none;
+  background-color: #fff;
+  color: #000;
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.1);
+  transition: border 0.2s ease, box-shadow 0.2s ease;
+}
+
+.input:focus {
+  border-color: #000;
+  box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.2);
+}
+
+.button {
+  padding: 0.75rem 1.25rem;
+  font-size: 1rem;
+  border-radius: 12px;
+  border: 1px solid #000;
+  background-color: #fff;
+  color: #000;
+  cursor: pointer;
+  transition: background-color 0.2s ease, transform 0.1s ease;
+}
+
+.button:hover {
+  background-color: #f0f0f0;
+  transform: translateY(-1px);
+}
+
+/* Animation */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.shoeGrid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin-top: 1rem;
+}
