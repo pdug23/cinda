@@ -1,29 +1,34 @@
 // components/AffiliateLinks.jsx
-import { shoes as shoeData } from '../data/shoes';
 import { getAffiliateLinksForShoe } from '../config/affiliate';
+
+function resolveShoeName(entry) {
+  if (!entry) return '';
+  if (typeof entry === 'string') return entry;
+  if (entry.name) return entry.name;
+  if (entry.brand || entry.model) {
+    return `${entry.brand || ''} ${entry.model || ''}`.trim();
+  }
+  return '';
+}
 
 export default function AffiliateLinks({ shoes }) {
   if (!shoes || shoes.length === 0) return null;
 
   return (
     <div className="mt-2 space-y-2">
-      {shoes.map((s) => {
-        const shoe = shoeData.find(
-          (item) => item.brand === s.brand && item.model === s.model
-        );
-        if (!shoe) return null;
+      {shoes.map((shoeEntry, idx) => {
+        const shoeName = resolveShoeName(shoeEntry);
+        if (!shoeName) return null;
 
-        const links = getAffiliateLinksForShoe(shoe);
+        const links = getAffiliateLinksForShoe(shoeName);
         if (!links.length) return null;
 
         return (
           <div
-            key={`${shoe.brand}-${shoe.model}`}
+            key={`${shoeName}-${idx}`}
             className="mt-2 rounded-xl border border-slate-200 bg-white/80 px-3 py-2 text-xs text-slate-700"
           >
-            <div className="font-medium mb-1">
-              {shoe.brand} {shoe.model}
-            </div>
+            <div className="mb-1 font-medium">{shoeName}</div>
             <div className="flex flex-wrap gap-2">
               {links.map((link) => (
                 <a

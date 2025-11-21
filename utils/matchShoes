@@ -1,16 +1,22 @@
-import { shoes } from '../data/shoes';
+// Helper to extract shoe names from an assistant reply containing a SHOES_JSON block.
 
-// Clean and simplify text for matching
-const normalise = (text) => text.toLowerCase().replace(/[^a-z0-9\s]/gi, '');
+const SHOES_REGEX = /SHOES_JSON\s*:\s*(\{[\s\S]*?\})/i;
 
 export function matchShoesFromReply(reply) {
-  const cleanedReply = normalise(reply);
-
-  const matched = shoes.filter((shoe) => {
-    const nameMatch = cleanedReply.includes(normalise(shoe.name));
-    const brandMatch = cleanedReply.includes(normalise(shoe.brand));
-    return nameMatch || (brandMatch && cleanedReply.includes(normalise(`${shoe.brand} ${shoe.name}`)));
-  });
-
-  return matched;
+  if (!reply) return [];
+  const match = reply.match(SHOES_REGEX);
+  if (!match) return [];
+  try {
+    const parsed = JSON.parse(match[1]);
+    const recommended = Array.isArray(parsed?.recommendedShoes) ? parsed.recommendedShoes : [];
+    return recommended
+      .map((item) => {
+        if (typeof item === 'string') return item.trim();
+        if (item && typeof item.name === 'string') return item.name.trim();
+        return '';
+      })
+      .filter(Boolean);
+  } catch (err) {
+    return [];
+  }
 }
