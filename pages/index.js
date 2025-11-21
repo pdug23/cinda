@@ -1,96 +1,107 @@
+// pages/index.js
 import { useState } from 'react';
-import styles from '../styles/Home.module.css';
+import ChatMessage from '../components/ChatMessage';
+import AffiliateLinks from '../components/AffiliateLinks';
 
 export default function Home() {
-  const [input, setInput] = useState('');
   const [messages, setMessages] = useState([]);
-  const [matchedShoes, setMatchedShoes] = useState([]);
+  const [input, setInput] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
 
-  const handleSubmit = async (e) => {
+  async function handleSubmit(e) {
     e.preventDefault();
+    if (!input.trim() || isLoading) return;
 
-    // Add the user message to the local chat history
-    const newMessages = [...messages, { role: 'user', content: input }];
-    setMessages(newMessages);
+    const userMessage = { role: 'user', content: input };
+    const chatHistory = messages.map((m) => ({
+      role: m.role,
+      content: m.content,
+    }));
+
+    setMessages((prev) => [...prev, userMessage]);
     setInput('');
+    setIsLoading(true);
 
-    // Send the message and full history to the backend
-    const res = await fetch('/api/chat', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ 
-        message: input,
-        chatHistory: newMessages
-      }),
-    });
+    try {
+      const res = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message: userMessage.content,
+          chatHistory,
+        }),
+      });
 
-    const data = await res.json();
+      const data = await res.json();
 
-    // Add Cinda's reply to the local chat history
-    setMessages([
-      ...newMessages,
-      { role: 'assistant', content: data.reply }
-    ]);
+      const assistantMessage = {
+        role: 'assistant',
+        content: data.reply,
+        shoes: data.shoes || [],
+      };
 
-    // Update matched shoes if present
-    setMatchedShoes(data.matchedShoes || []);
-  };
+      setMessages((prev) => [...prev, assistantMessage]);
+    } catch (err) {
+      console.error(err);
+      const errorMessage = {
+        role: 'assistant',
+        content: 'Something went wrong talking to Cinda 😢',
+      };
+      setMessages((prev) => [...prev, errorMessage]);
+    } finally {
+      setIsLoading(false);
+    }
+  }
 
   return (
-    <main className={styles.container}>
-      <img
-        src="/cinda-logo.png"
-        alt="Cinda logo"
-        className={styles.logo}
-      />
-
-      <div className={styles.chatWindow}>
-        {messages.map((msg, idx) => (
-          <div
-            key={idx}
-            className={`${styles.bubble} ${
-              msg.role === 'user' ? styles.userBubble : styles.cindaBubble
-            }`}
-          >
-            {msg.content}
+    <div className="min-h-screen bg-slate-50 text-slate-900">
+      {/* Header */}
+      <header className="border-b bg-white">
+        <div className="mx-auto max-w-5xl px-4 py-3 flex items-center justify-between">
+          <div className="flex items-baseline gap-2">
+            <span className="text-lg font-semibold tracking-tight">Cinda</span>
+            <span className="text-xs text-slate-500">Your running shoe nerd</span>
           </div>
-        ))}
-      </div>
-
-      <form onSubmit={handleSubmit} className={styles.form}>
-        <input
-          className={styles.input}
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          placeholder="Ask me about running shoes..."
-        />
-        <button className={styles.button} type="submit">
-          Ask
-        </button>
-      </form>
-
-      {matchedShoes.length > 0 && (
-        <div style={{ marginTop: '2rem' }}>
-          <h2 style={{ fontSize: '1.2rem', marginBottom: '1rem' }}>Recommended Shoes</h2>
-          {matchedShoes.map((shoe, idx) => (
-            <div key={idx} style={{
-              background: '#fff',
-              color: '#000',
-              borderRadius: '12px',
-              padding: '1rem',
-              marginBottom: '1rem',
-              boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
-            }}>
-              <strong>{shoe.brand} {shoe.name}</strong>
-              <p><strong>Type:</strong> {shoe.types.join(', ')}</p>
-              <p><strong>Support:</strong> {shoe.support}</p>
-              <p><strong>Drop:</strong> {shoe.drop}mm | <strong>Weight:</strong> {shoe.weight}g</p>
-              <p><strong>Stack:</strong> Heel {shoe.heelHeight}mm / Forefoot {shoe.forefootHeight}mm</p>
-              <p style={{ fontStyle: 'italic' }}>{shoe.notes}</p>
-            </div>
-          ))}
+          <span className="text-xs text-slate-400">Powered by OpenAI</span>
         </div>
-      )}
-    </main>
+      </header>
+
+      {/* Main layout */}
+      <main className="mx-auto max-w-5xl px-4 py-6">
+        <section className="flex flex-col rounded-2xl border bg-white shadow-sm max-h-[80vh]">
+          {/* Chat area */}
+          <div className="flex-1 overflow-y-auto px-3 py-3">
+            {messages.map((m, i) => (
+              <ChatMessage key={i} role={m.role} content={m.content}>
+                {m.role === 'assistant' && m.shoes && m.shoes.length > 0 && (
+                  <AffiliateLinks shoes={m.shoes} />
+                )}
+              </ChatMessage>
+            ))}
+            {isLoading && (
+              <div className="text-xs text-slate-400 px-2 py-1">Cinda is thinking…</div>
+            )}
+          </div>
+
+          {/* Input */}
+          <form onSubmit={handleSubmit} className="border-t px-3 py-2 flex gap-2">
+            <input
+              type="text"
+              className="flex-1 rounded-full border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="Tell Cinda what you’re training for…"
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+            />
+            <button
+              type="submit"
+              disabled={isLoading}
+              className="rounded-full bg-blue-600 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
+            >
+              Send
+            </button>
+          </form>
+        </section>
+      </main>
+    </div>
   );
 }
