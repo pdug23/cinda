@@ -1,12 +1,7 @@
 // pages/api/chat.js
 
 import OpenAI from 'openai';
-import { shoes } from '../../data/shoes';
-import {
-  parseContext,
-  missingContextCheck,
-  filterShoes,
-} from './chat-utils';
+import { parseContext, missingContextCheck } from './chat-utils';
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -14,29 +9,6 @@ const openai = new OpenAI({
 
 // You can override this in .env.local with OPENAI_MODEL if you ever want to.
 const MODEL_NAME = process.env.OPENAI_MODEL || 'gpt-5.1';
-
-/**
- * From the assistant's reply text, work out which shoes were mentioned
- * so the frontend can show cards / affiliate links.
- */
-function extractMentionedShoesFromReply(replyText) {
-  const lcReply = (replyText || '').toLowerCase();
-  const mentioned = [];
-
-  for (const shoe of shoes) {
-    const fullName = `${shoe.brand} ${shoe.model}`.toLowerCase();
-    const modelOnly = shoe.model.toLowerCase();
-
-    if (lcReply.includes(fullName) || lcReply.includes(modelOnly)) {
-      mentioned.push({
-        brand: shoe.brand,
-        model: shoe.model,
-      });
-    }
-  }
-
-  return mentioned;
-}
 
 /**
  * Try to infer the primary running "intent" (race, tempo, long run, etc)
@@ -57,14 +29,14 @@ function inferRunIntent(message, history) {
   const text = parts.join(' ').toLowerCase();
 
   const intent = {
-    useCase: null,        // 'race' | 'tempo' | 'long' | 'daily' | 'easy'
-    raceDistance: null,   // '5k' | '10k' | 'half' | 'marathon'
-    wantsCarbon: null,    // true | false | null
+    useCase: null, // 'race' | 'tempo' | 'long' | 'daily' | 'easy'
+    raceDistance: null, // '5k' | '10k' | 'half' | 'marathon'
+    wantsCarbon: null, // true | false | null
   };
 
   // Race distance
-  if (/5k|5 km|5km/.test(text)) intent.raceDistance = '5k';
-  if (/10k|10 km|10km/.test(text)) intent.raceDistance = '10k';
+  if (/\b5k\b|5 km|5km/.test(text)) intent.raceDistance = '5k';
+  if (/\b10k\b|10 km|10km/.test(text)) intent.raceDistance = '10k';
   if (/half marathon|13\.1/.test(text)) intent.raceDistance = 'half';
   if (/(full marathon|marathon|26\.2)/.test(text)) intent.raceDistance = 'marathon';
 
@@ -84,22 +56,7 @@ function inferRunIntent(message, history) {
     'plated shoe',
   ];
 
-  const raceModelNames = [
-    'vaporfly',
-    'alphafly',
-    'adios pro',
-    'metaspeed',
-    'rocket x',
-    'deviate elite',
-    'fast-r',
-    'fast r',
-    'rc elite',
-  ];
-
-  if (
-    raceSignals.some((s) => text.includes(s)) ||
-    raceModelNames.some((s) => text.includes(s))
-  ) {
+  if (raceSignals.some((s) => text.includes(s))) {
     intent.useCase = 'race';
   }
 
@@ -111,7 +68,7 @@ function inferRunIntent(message, history) {
       intent.useCase = 'long';
     } else if (
       /(daily trainer|everyday trainer|most of my miles|do-everything|do everything|one shoe|only shoe)/.test(
-        text
+        text,
       )
     ) {
       intent.useCase = 'daily';
@@ -126,34 +83,6 @@ function inferRunIntent(message, history) {
   }
 
   return intent;
-}
-
-/**
- * Helper to decide if a shoe is clearly "racey".
- */
-function isRaceyShoe(shoe) {
-  const types = shoe.types || [];
-  const raceReadiness = shoe.raceReadiness || '';
-  const name = `${shoe.brand} ${shoe.model}`.toLowerCase();
-
-  const nameSignals = [
-    'vaporfly',
-    'alphafly',
-    'adios pro',
-    'metaspeed',
-    'rocket x',
-    'elite',
-    'fast-r',
-    'fast r',
-    'rc elite',
-  ];
-
-  return (
-    types.includes('race') ||
-    raceReadiness === 'race' ||
-    shoe.plated === true ||
-    nameSignals.some((sig) => name.includes(sig))
-  );
 }
 
 /**
@@ -174,25 +103,12 @@ You will receive:
   - "useCase": "race" | "tempo" | "long" | "daily" | "easy" | null
   - "raceDistance": "5k" | "10k" | "half" | "marathon" | null
   - "wantsCarbon": true | false | null
-- "shortlistedShoes": the ONLY shoes you are allowed to recommend.
-
-Rules about runIntent:
-- If runIntent.useCase === "race":
-  - Treat this as a request for a race shoe, not a daily trainer.
-  - Focus on race-appropriate options (plated "super shoes" or lighter race-ready models).
-  - Only mention long-run comfort if the user also clearly cares about that.
-- If runIntent.useCase === "tempo":
-  - Favour shoes suited to tempo/speed sessions or lighter trainers that could double for racing.
-- If runIntent.useCase === "long":
-  - Favour cushioned, protective shoes for longer easy runs.
-- If runIntent.useCase === "easy" or "daily":
-  - Favour comfortable, reliable daily trainers that match the described feel/support.
 
 Your job:
-- Use the supplied "runnerContext" and the "shortlistedShoes" to recommend 1–3 shoes.
+- Recommend 1–3 real, modern running shoes.
 - Explain *why* each shoe fits the runner (goal, feel, support, experience level if obvious).
 - Never make up shoes that do not exist.
-- Never recommend a shoe that is not in the supplied "shortlistedShoes" list.
+- Avoid any model the runner explicitly disliked.
 
 Context rules:
 - Respect explicit dislikes: if the user hated a model, do not recommend it again.
@@ -205,18 +121,45 @@ RunRepeat:
 - You may suggest: "For more detail, check the RunRepeat lab review for this shoe."
 - Do not quote specific lab scores or copy their wording - just refer to them as a resource.
 
-Output style:
+Output format (mandatory):
 - Start with a short summary sentence of your overall view.
 - Then list 1–3 recommended shoes.
   For each shoe:
   - Give 2–4 short bullet points on why it fits.
-- If the context is still a bit fuzzy, it's OK to say what you *assume* and why.
-- If there genuinely isn't a clear match, say that honestly and suggest the closest options.
+- Always end the message with a JSON block exactly like this:
+  SHOES_JSON: {"recommendedShoes":[{"name":"Brand Model"}]}
+  - Use real model names.
+  - Keep between 1 and 3 items.
+`.trim();
+}
 
-Do NOT:
-- Repeat the full shoe spec table (stack height, weight, etc) unless it genuinely helps the decision.
-- Overwhelm with numbers. Focus on feel, use-case, and trade-offs.
-  `.trim();
+function extractShoesFromReply(replyText) {
+  const shoes = [];
+  if (!replyText) return { shoes, cleanedReply: '' };
+
+  const jsonMatch = replyText.match(/SHOES_JSON\s*:\s*(\{[\s\S]*\})/i);
+  if (jsonMatch) {
+    const jsonBlock = jsonMatch[1];
+    try {
+      const parsed = JSON.parse(jsonBlock);
+      const recommended = Array.isArray(parsed?.recommendedShoes) ? parsed.recommendedShoes : [];
+      recommended.forEach((item) => {
+        if (typeof item === 'string' && item.trim()) {
+          shoes.push(item.trim());
+        } else if (item && typeof item.name === 'string' && item.name.trim()) {
+          shoes.push(item.name.trim());
+        }
+      });
+    } catch (err) {
+      console.warn('Failed to parse SHOES_JSON block', err);
+    }
+  }
+
+  const cleanedReply = jsonMatch
+    ? replyText.replace(jsonMatch[0], '').trim()
+    : replyText.trim();
+
+  return { shoes, cleanedReply };
 }
 
 export default async function handler(req, res) {
@@ -244,10 +187,7 @@ export default async function handler(req, res) {
     //    a strong run intent that gives us enough to go on.
     let missingPrompt = missingContextCheck(context);
 
-    // If we clearly know it's a race/tempo/long/etc request, don't get stuck
-    // asking generic "what kind of running" questions forever.
     if (runIntent.useCase && missingPrompt) {
-      // We'll skip the generic prompt and let the model handle nuance instead.
       missingPrompt = null;
     }
 
@@ -258,50 +198,7 @@ export default async function handler(req, res) {
       });
     }
 
-    // 4) Filter shoes based on context and message (existing helper)
-    const candidateShoes = filterShoes(shoes, message, safeHistory, context);
-
-    // Base shortlist
-    let shortlist = candidateShoes.length > 0 ? candidateShoes : shoes;
-
-    // 5) Apply runIntent overrides to fix issues like "race shoe" returning a long run trainer.
-    if (runIntent.useCase === 'race') {
-      let raceShortlist = shortlist.filter(isRaceyShoe);
-
-      if (!raceShortlist.length) {
-        raceShortlist = shoes.filter(isRaceyShoe);
-      }
-
-      if (raceShortlist.length) {
-        shortlist = raceShortlist;
-      }
-    } else if (runIntent.useCase === 'tempo') {
-      const tempoShort = shortlist.filter((s) => {
-        const types = s.types || [];
-        return types.includes('tempo') || isRaceyShoe(s);
-      });
-      if (tempoShort.length) shortlist = tempoShort;
-    } else if (runIntent.useCase === 'long') {
-      const longShort = shortlist.filter((s) => {
-        const types = s.types || [];
-        return types.includes('long') || types.includes('easy') || types.includes('daily');
-      });
-      if (longShort.length) shortlist = longShort;
-    } else if (runIntent.useCase === 'easy') {
-      const easyShort = shortlist.filter((s) => {
-        const types = s.types || [];
-        return types.includes('easy') || types.includes('recovery') || types.includes('daily');
-      });
-      if (easyShort.length) shortlist = easyShort;
-    } else if (runIntent.useCase === 'daily') {
-      const dailyShort = shortlist.filter((s) => {
-        const types = s.types || [];
-        return types.includes('daily') || types.length > 1; // multi-purpose shoes
-      });
-      if (dailyShort.length) shortlist = dailyShort;
-    }
-
-    // 6) Build system and user messages for GPT-5.1
+    // 4) Build system and user messages for GPT-5.1
     const systemPrompt = buildSystemPrompt();
 
     const userPayload = {
@@ -310,15 +207,6 @@ export default async function handler(req, res) {
         ...context,
         runIntent,
       },
-      shortlistedShoes: shortlist.map((s) => ({
-        brand: s.brand,
-        model: s.model,
-        types: s.types,
-        raceReadiness: s.raceReadiness,
-        plated: s.plated,
-        heelHeight: s.heelHeight,
-        forefootHeight: s.forefootHeight,
-      })),
     };
 
     const completion = await openai.chat.completions.create({
@@ -328,10 +216,9 @@ export default async function handler(req, res) {
         {
           role: 'user',
           content: `
-Here is the latest user message, previous chat context, an inferred runIntent, and the list of shoes you are allowed to pick from.
+Here is the latest user message, previous chat context, an inferred runIntent, and reminders about dislikes.
 
-You MUST ONLY recommend shoes from the "shortlistedShoes" array.
-If nothing is suitable, explain why and suggest the closest options.
+Use any modern, real running shoes that fit the context. Never invent models.
 
 ${JSON.stringify(userPayload, null, 2)}
           `.trim(),
@@ -340,14 +227,15 @@ ${JSON.stringify(userPayload, null, 2)}
       temperature: 0.6,
     });
 
-    const reply =
+    const rawReply =
       completion.choices[0]?.message?.content ||
       'Sorry, I could not generate a response.';
-    const mentionedShoes = extractMentionedShoesFromReply(reply);
+
+    const { shoes, cleanedReply } = extractShoesFromReply(rawReply);
 
     return res.status(200).json({
-      reply,
-      shoes: mentionedShoes,
+      reply: cleanedReply || rawReply,
+      shoes,
     });
   } catch (err) {
     console.error('Error in /api/chat:', err);

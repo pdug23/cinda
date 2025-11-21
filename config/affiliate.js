@@ -1,65 +1,55 @@
 // config/affiliate.js
 
-const SITE_CONFIG = {
-  sportsshoes: {
+const RETAILERS = [
+  {
     key: 'sportsshoes',
-    name: 'Sportsshoes',
+    label: 'Sportsshoes',
     baseSearchUrl: 'https://www.sportsshoes.com/search/?q=',
-    affiliateParam: '',
   },
-  startFitness: {
+  {
     key: 'startFitness',
-    name: 'Start Fitness',
+    label: 'Start Fitness',
     baseSearchUrl: 'https://www.startfitness.co.uk/catalogsearch/result/?q=',
-    affiliateParam: '',
   },
-  runningWarehouse: {
+  {
     key: 'runningWarehouse',
-    name: 'Running Warehouse EU',
+    label: 'Running Warehouse EU',
     baseSearchUrl: 'https://www.runningwarehouse.eu/search.html?search=',
-    affiliateParam: '',
   },
-  proDirect: {
+  {
     key: 'proDirect',
-    name: 'Pro:Direct Running',
+    label: 'Pro:Direct Running',
     baseSearchUrl: 'https://www.prodirectrunning.com/lists/search.aspx?search=',
-    affiliateParam: '',
   },
-  runRepeat: {
+  {
     key: 'runRepeat',
-    name: 'RunRepeat review',
-    baseUrl: 'https://runrepeat.com/',
+    label: 'RunRepeat review',
+    baseSearchUrl: 'https://runrepeat.com/search?q=',
   },
-};
+];
 
-function buildUrlWithAffiliate(base, affiliateParam) {
-  if (!affiliateParam) return base;
-  return base + (base.includes('?') ? '&' : '?') + affiliateParam;
+function buildUrlWithAffiliate(base) {
+  return base;
 }
 
-export function getAffiliateLinksForShoe(shoe) {
-  const query = encodeURIComponent(`${shoe.brand} ${shoe.model}`);
-  const links = [];
+/**
+ * Generate affiliate links for a given shoe name. The engine only needs a
+ * string; retailers handle the search query on their side.
+ *
+ * @param {string} shoeName
+ * @returns {Array<{key: string, label: string, url: string, type?: string}>}
+ */
+export function getAffiliateLinksForShoe(shoeName) {
+  if (!shoeName) return [];
+  const query = encodeURIComponent(shoeName);
 
-  for (const siteKey of ['sportsshoes', 'startFitness', 'runningWarehouse', 'proDirect']) {
-    const site = SITE_CONFIG[siteKey];
-    const base = `${site.baseSearchUrl}${query}`;
-    links.push({
+  return RETAILERS.map((site) => {
+    const url = `${site.baseSearchUrl}${query}`;
+    return {
       key: site.key,
-      label: site.name,
-      url: buildUrlWithAffiliate(base, site.affiliateParam),
-      type: 'retailer',
-    });
-  }
-
-  if (shoe.runRepeatSlug) {
-    const base = `${SITE_CONFIG.runRepeat.baseUrl}${shoe.runRepeatSlug}`;
-    links.push({
-      key: SITE_CONFIG.runRepeat.key,
-      label: SITE_CONFIG.runRepeat.name,
-      url: base,
-    });
-  }
-
-  return links;
+      label: site.label,
+      url: buildUrlWithAffiliate(url),
+      type: site.key === 'runRepeat' ? 'resource' : 'retailer',
+    };
+  });
 }
